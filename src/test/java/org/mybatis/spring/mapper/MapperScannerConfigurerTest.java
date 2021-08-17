@@ -37,6 +37,7 @@ import org.mybatis.spring.SqlSessionFactoryBean;
 import org.mybatis.spring.SqlSessionTemplate;
 import org.mybatis.spring.mapper.child.MapperChildInterface;
 import org.mybatis.spring.type.DummyMapperFactoryBean;
+import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.config.ConstructorArgumentValues;
@@ -60,6 +61,7 @@ class MapperScannerConfigurerTest {
     // an XML config file
     GenericBeanDefinition definition = new GenericBeanDefinition();
     definition.setBeanClass(MapperScannerConfigurer.class);
+    //指定扫描包，只扫描指定包下的@Mapper
     definition.getPropertyValues().add("basePackage", "org.mybatis.spring.mapper");
     applicationContext.registerBeanDefinition("mapperScanner", definition);
     applicationContext.getBeanFactory().registerScope("thread", new SimpleThreadScope());
@@ -148,16 +150,25 @@ class MapperScannerConfigurerTest {
 
   @Test
   void testAnnotationScan() {
+    //指定使用 @Component注解作为被扫描的接口标记
     applicationContext.getBeanDefinition("mapperScanner").getPropertyValues().add("annotationClass", Component.class);
 
     startContext();
 
-    // only annotated mappers should be loaded
-    applicationContext.getBean("annotatedMapper");
-    applicationContext.getBean("mapperChildInterface");
 
+    // only annotated mappers should be loaded
+    AnnotatedMapper annotatedMapper = (AnnotatedMapper)applicationContext.getBean("annotatedMapper");
+    MapperChildInterface mapperChildInterface=(MapperChildInterface) applicationContext.getBean("mapperChildInterface");
+
+    //在MapperInterface类中没有使用任何标记@Component或者@Mapper注解标注这个接口，请问这个接口是否会被创建代理对象
     assertBeanNotLoaded("mapperInterface");
     assertBeanNotLoaded("mapperSubinterface");
+    //studentMapper不位于 basePackage中
+    try {
+      applicationContext.getBean("studentMapper");
+    } catch (BeansException e) {
+      e.printStackTrace();
+    }
   }
 
   @Test

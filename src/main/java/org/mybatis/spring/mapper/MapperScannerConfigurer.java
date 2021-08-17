@@ -356,6 +356,37 @@ public class MapperScannerConfigurer
 
     ClassPathMapperScanner scanner = new ClassPathMapperScanner(registry);
     scanner.setAddToConfig(this.addToConfig);
+    /**
+     * 设置扫描指定package路径下的指定注解的类，类似于 @ComponentScan ，ComponentScan中可以指定includeFilters属性
+     *
+     * By default, classes annotated with @Component, @Repository, @Service, @Controller are registered as Spring beans. The same goes for classes annotated with a custom annotation that is annotated with @Component. We can extend this behavior by using includeFilters and excludeFilters parameters of the @ComponentScan annotation.
+     *
+     * There are five types of filters available for ComponentScan.Filter :
+     *
+     * ANNOTATION
+     * ASSIGNABLE_TYPE
+     * ASPECTJ
+     * REGEX
+     * CUSTOM
+     * We'll see these in detail in the next sections.
+     *
+     * We should note that all these filters can include or exclude classes from scanning. For simplicity in our examples, we'll only include classes.
+     *
+     * 默认情况下，带有@Component、@Repository、@Service、@Controller注解的类会被注册为Spring bean。使用@Component注解的自定义注解的类也是如此。我们可以通过使用@ComponentScan注释的includeFilters和excludeFilters参数来扩展此行为。
+     *
+     * ComponentScan有五种类型的过滤器可用。过滤器:
+     *
+     * 注释
+     * ASSIGNABLE_TYPE
+     * ASPECTJ
+     * 正则表达式
+     * 自定义
+     * 我们将在下一节中详细介绍这些内容。
+     *
+     * 我们应该注意到，所有这些过滤器都可以包括或排除类的扫描。为简单起见，在我们的示例中，我们只包含类。
+     *
+     *示例：    applicationContext.getBeanDefinition("mapperScanner").getPropertyValues().add("annotationClass", Mapper.class);
+     */
     scanner.setAnnotationClass(this.annotationClass);
     scanner.setMarkerInterface(this.markerInterface);
     scanner.setSqlSessionFactory(this.sqlSessionFactory);

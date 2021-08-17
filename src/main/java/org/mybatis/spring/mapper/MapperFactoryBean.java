@@ -53,6 +53,23 @@ import org.springframework.beans.factory.FactoryBean;
  */
 public class MapperFactoryBean<T> extends SqlSessionDaoSupport implements FactoryBean<T> {
 
+  /**
+   * 每一个Mapper接口类 对应有一个MapperFactoryBean对象，MapperFactoryBean对象的getObject方法会返回这个接口的代理对象
+   * 在MapperFactoryBean的getObject方法中获取接口对象 是委托给SQLSession中的Configuration中的getMapper方法实现的
+   *
+   * Configuration的getmapper最终会使用MapperProxyFactory的newInstance方法创建一个Mapper接口的代理对象---》mapperProxyFactory.newInstance(sqlSession);
+   *
+   * public T newInstance(SqlSession sqlSession) {
+   *   //创建了一个MapperProxy对象，这个MapperProxy就是InvocationHandler
+   *     final MapperProxy<T> mapperProxy = new MapperProxy<T>(sqlSession, mapperInterface, methodCache);
+   *     return newInstance(mapperProxy);---》org.apache.ibatis.binding.MapperProxyFactory#newInstance(org.apache.ibatis.binding.MapperProxy) 使用jdk动态代理创建代理对象
+   *   }
+   *
+   *问题：MapperFactoryBean 和mapper接口之间的对应关系什么时候建立？ MapperFactoryBean对象什么时候创建？
+   * 在org.mybatis.spring.boot.autoconfigure.MybatisAutoConfiguration.AutoConfiguredMapperScannerRegistrar#registerBeanDefinitions
+   * 方法中创建一个ClassPathMapperScanner对象，其父类ClassPathMapperScanner 中存在成员属性 ： private MapperFactoryBean<?> mapperFactoryBean = new MapperFactoryBean();
+   *也就是说一个scanner中有一个MapperFactoryBean对象
+   */
   private Class<T> mapperInterface;
 
   private boolean addToConfig = true;
@@ -88,7 +105,18 @@ public class MapperFactoryBean<T> extends SqlSessionDaoSupport implements Factor
   }
 
   /**
-   * {@inheritDoc}
+   * 每一个Mapper接口类 对应有一个MapperFactoryBean对象，MapperFactoryBean对象的getObject方法会返回这个接口的代理对象
+   * 在MapperFactoryBean的getObject方法中获取接口对象 是委托给SQLSession中的Configuration中的getMapper方法实现的
+   *
+   * Configuration的getmapper最终会使用MapperProxyFactory的newInstance方法创建一个Mapper接口的代理对象---》mapperProxyFactory.newInstance(sqlSession);
+   *
+   * public T newInstance(SqlSession sqlSession) {
+   *   //创建了一个MapperProxy对象，这个MapperProxy就是InvocationHandler
+   *     final MapperProxy<T> mapperProxy = new MapperProxy<T>(sqlSession, mapperInterface, methodCache);
+   *     return newInstance(mapperProxy);---》org.apache.ibatis.binding.MapperProxyFactory#newInstance(org.apache.ibatis.binding.MapperProxy) 使用jdk动态代理创建代理对象
+   *   }
+   *
+   *
    */
   @Override
   public T getObject() throws Exception {
