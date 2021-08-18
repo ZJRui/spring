@@ -45,7 +45,34 @@ public class SimpleExecutor extends BaseExecutor {
     Statement stmt = null;
     try {
       Configuration configuration = ms.getConfiguration();
+      /**
+       * 这里创建一个SatementHandler，这个Handler是 RoutingStatementHandler 其内部的deletegate是PreparedStatementHandler
+       */
       StatementHandler handler = configuration.newStatementHandler(this, ms, parameter, RowBounds.DEFAULT, null, null);
+      /**
+       * 这里执行prepareStatement，在改方法内首先getConnection，这个实现实际是委托给了SpringManagedTransaction的getConnection
+       * 而且如果开启了debug级别 对是SpringManagedTransaction中获取到的Connection还进行代理，进行代理时使用ConnectionLogger作为InvocationHandler，使用Connection接口作为被代理的接口。
+       *最终我们得到的connection是一个代理对象。 因此执行Connection接口中的方法就会执行 InvocationHandler（ConnectionLogger）中的invoke方法
+       *  Connection connection = transaction.getConnection();
+       *     if (statementLog.isDebugEnabled()) {
+       *       //实现对Connection对象的代理
+       *       return ConnectionLogger.newInstance(connection, statementLog, queryStack);
+       *     } else {
+       *       return connection;
+       *     }
+       *
+       * 我们以执行connection的prepareStatement方法为例， 在ConnectionLogger中，如果判断当前执行的Connection 的方法是prepareStatement，则会执行如下逻辑
+       *   step1:首先在目标原始connection对象上执行 method，获取到java sql包中提供的PreparedStatement对象，如果你的项目中使用了druid连接池，最终会返回一个阿里巴巴的PreparedStatementProxyImpl
+       *  PreparedStatement stmt = (PreparedStatement) method.invoke(connection, params);
+       *  step2,当拿到PreparedStatement 之后我们会为这个PreparedStatement 在创建一个代理对象，使用mybatis的PreparedStatementLogger 作为InvocationHandler，
+       *  因此最终的效果就是执行PreparedStatement接口中的方法的时候会 执行Mybatis的PreparedStatementLogger中的invoke方法
+       *  stmt = PreparedStatementLogger.newInstance(stmt, statementLog, queryStack);//创建代理对象
+       *
+       *
+       *
+       *
+       *
+       */
       stmt = prepareStatement(handler, ms.getStatementLog());
       return handler.update(stmt);
     } finally {
