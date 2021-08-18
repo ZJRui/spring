@@ -57,6 +57,10 @@ class MyBatisSpringTest extends AbstractMyBatisSpringTest {
   @Test
   void testMyBatisAPI() {
     session = sqlSessionFactory.openSession();
+    /**
+     * getMapper方法返回的是TestMapper接口的代理对象，MapperProxy作为InvocationHandler。
+     * 当执行findtest的时候就会执行MapperProxy的invoke.
+     */
     session.getMapper(TestMapper.class).findTest();
     session.close();
 

@@ -58,6 +58,31 @@ public class SimpleExecutor extends BaseExecutor {
     Statement stmt = null;
     try {
       Configuration configuration = ms.getConfiguration();
+      /**
+       * 这里使用了Configuration.newStatementHandler,类似于org.apache.ibatis.session.defaults.DefaultSqlSessionFactory#openSessionFromDataSource(org.apache.ibatis.session.ExecutorType, org.apache.ibatis.session.TransactionIsolationLevel, boolean)
+       * 方法中创建Executor final Executor executor = configuration.newExecutor(tx, execType);
+       * 在Configuration的newExecutor中 会首先根据execType创建一个Executor，然后针对这个Executor创建代理对象，方式就是使用  executor = (Executor) interceptorChain.pluginAll(executor);
+       *
+       * 在这里使用了同样的方式 创建StatementHandler，在newStatementHandler内部也是首先创建一个StatementHandler，然后创建代理对象
+       *  StatementHandler statementHandler = new RoutingStatementHandler(executor, mappedStatement, parameterObject, rowBounds, resultHandler, boundSql);
+       *  statementHandler = (StatementHandler) interceptorChain.pluginAll(statementHandler);
+       *  最终得到的是RoutingStatementHandler的代理对象
+       *
+       *  而且需要注意的是 RoutingStatementHandler 继承自BaseStatementHandler，在创建RoutingStatementHandler的时候必然执行BaseStatementHandler的构造器
+       *  在BaseStatementHandler的构造器内执行了
+       *
+       *this.parameterHandler = configuration.newParameterHandler(mappedStatement, parameterObject, boundSql);
+       *this.resultSetHandler = configuration.newResultSetHandler(executor, mappedStatement, rowBounds, parameterHandler, resultHandler, boundSql);
+       *
+       * 其中Configuration的newParameterHandler方法内 也是类似的实现
+       *  ParameterHandler parameterHandler = mappedStatement.getLang().createParameterHandler(mappedStatement, parameterObject, boundSql);
+       *  parameterHandler = (ParameterHandler) interceptorChain.pluginAll(parameterHandler);
+       *
+       * Configuration的newResultSetHandler：
+       *  ResultSetHandler resultSetHandler = new DefaultResultSetHandler(executor, mappedStatement, parameterHandler, resultHandler, boundSql, rowBounds);
+       *  resultSetHandler = (ResultSetHandler) interceptorChain.pluginAll(resultSetHandler);
+       *
+       */
       StatementHandler handler = configuration.newStatementHandler(wrapper, ms, parameter, rowBounds, resultHandler, boundSql);
       stmt = prepareStatement(handler, ms.getStatementLog());
       return handler.query(stmt, resultHandler);

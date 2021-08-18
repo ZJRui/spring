@@ -108,8 +108,17 @@ public class DefaultSqlSessionFactory implements SqlSessionFactory {
       tx = transactionFactory.newTransaction(environment.getDataSource(), level, autoCommit);
       /**
        * 这里创建一个Executor，tx是SpringManagedTransaction ，execType是simple
+       * newExecutor 内部会针对newExecutor内创建的Executor 执行  executor = (Executor) interceptorChain.pluginAll(executor);、
+       * 因此最终返回的是Executor的代理对象。
        */
       final Executor executor = configuration.newExecutor(tx, execType);
+      /**
+       * 创建好的Executor会被传递给SqlSession，在SqlSession执行selectOne的时候，selectOne最终会执行
+       *  MappedStatement ms = configuration.getMappedStatement(statement);
+       *  return executor.query(ms, wrapCollection(parameter), rowBounds, handler);
+       *  也就是最终委托给了executor执行，也就是这里创建的executor。 我们可以将这里的Executor理解为
+       *  SimpleExecutor的代理对象，因为上面的configuration.newExecutor(tx, execType); 一般情况下就是SimpleExecutor【不考虑缓存的情况下】
+       */
       return new DefaultSqlSession(configuration, executor, autoCommit);
     } catch (Exception e) {
       closeTransaction(tx); // may have fetched a connection so lets call close()
