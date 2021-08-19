@@ -139,6 +139,9 @@ public class SimpleExecutor extends BaseExecutor {
      * 获取Connection，如果开启了debug log，这里将会返回Connection对象的代理对象，使用了ConnectionLogger作为代理对象
      */
     Connection connection = getConnection(statementLog);
+    /**
+     * 最终会调用connection的 prepareStatement方法 得到PrepareStatement对象
+     */
     stmt = handler.prepare(connection, transaction.getTimeout());
     handler.parameterize(stmt);
     return stmt;
