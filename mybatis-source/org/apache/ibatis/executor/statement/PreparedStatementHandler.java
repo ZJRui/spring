@@ -78,6 +78,10 @@ public class PreparedStatementHandler extends BaseStatementHandler {
     if (mappedStatement.getKeyGenerator() instanceof Jdbc3KeyGenerator) {
       String[] keyColumnNames = mappedStatement.getKeyColumns();
       if (keyColumnNames == null) {
+        /**
+         * 调用Connection对象（实际上是Connection代理对象）的prepareStatement，这个代理对象使用了 ConnectionLogger作为InvocationHandler。
+         * 因此将会进入ConnectionLogger的invoke
+         */
         return connection.prepareStatement(sql, PreparedStatement.RETURN_GENERATED_KEYS);
       } else {
         return connection.prepareStatement(sql, keyColumnNames);

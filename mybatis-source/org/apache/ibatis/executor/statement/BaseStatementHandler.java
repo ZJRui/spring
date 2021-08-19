@@ -85,6 +85,20 @@ public abstract class BaseStatementHandler implements StatementHandler {
     ErrorContext.instance().sql(boundSql.getSql());
     Statement statement = null;
     try {
+      /**
+       * 实例化创建Statement对象，一般是PrepareStatement，但是在Mybatis中一般都是以代理对象的形式存在。
+       * RoutingStatementHandler中存在delegate，这个delegate是PrepareStatementHandler，因此这里的this就是PrepareStatementHandler
+       * 因此我们查看PrepareStatementHandler的instantiateStatement
+       *
+       * 需要注意的是这里的connection不是 数据库连接connection，而是connection的代理对象，ConnectionLogger作为InvocationHandler
+       *
+       * =----------
+       * 如果是原生支持，我们可以直接用 sql的 connection的 prepareStatement得到 Statement[PreparedStatement]
+       * 但是在Mybatis中 connection不是 原始connection对象，而是开启了日志记录使用ConnectionLogger作为InvocationHandler的connection接口代理对象。
+       * 因此调用代理对象的prepareStatement实际就会进入ConnectionLogger的invoke.ConnectionLogger的invoke内对prepareStatement的实现逻辑是
+       * step1:首先调用 在原生的connection对象上调用PrepareStatement方法获取 PrepareStatement。
+       * step2:然后针对这个stmt 创建代理对象,使用PreparedStatementLogger 作为InvocationHandler，使用PreparedStatement.class, CallableStatement.class作为代理接口
+       */
       statement = instantiateStatement(connection);
       setStatementTimeout(statement, transactionTimeout);
       setFetchSize(statement);

@@ -135,6 +135,9 @@ public class SimpleExecutor extends BaseExecutor {
 
   private Statement prepareStatement(StatementHandler handler, Log statementLog) throws SQLException {
     Statement stmt;
+    /**
+     * 获取Connection，如果开启了debug log，这里将会返回Connection对象的代理对象，使用了ConnectionLogger作为代理对象
+     */
     Connection connection = getConnection(statementLog);
     stmt = handler.prepare(connection, transaction.getTimeout());
     handler.parameterize(stmt);
