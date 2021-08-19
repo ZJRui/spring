@@ -65,6 +65,14 @@ import org.springframework.dao.support.PersistenceExceptionTranslator;
  * }
  * </pre>
  *
+ * 线程安全、Spring托管、与Spring事务管理一起工作的SqlSession，以确保实际使用的SqlSession是与当前Spring事务相关联的SqlSession。此外，它还管理会话生命周期，包括根据Spring事务配置在必要时关闭、提交或回滚会话。
+ * 模板需要一个sqlessionfactory来创建SqlSessions，它作为构造函数参数传递。还可以构造它来指示要使用的执行器类型，如果没有，则使用会话工厂中定义的默认执行器类型。
+ * 该模板将MyBatis PersistenceExceptions转换为未选中的DataAccessExceptions，默认使用MyBatisExceptionTranslator。
+ * 因为SqlSessionTemplate是线程安全的，所以单个实例可以被所有dao共享;这样做还可以节省少量内存。这个模式可以在Spring配置文件中使用，如下所示:
+ * < bean id = " sqlSessionTemplate " class = " org.mybatis.spring.SqlSessionTemplate”>
+ * < constructor-arg ref = " sqlSessionFactory " / >
+ * < /豆>
+ *
  * @author Putthiphong Boonphong
  * @author Hunter Presnall
  * @author Eduardo Macarron
@@ -128,6 +136,15 @@ public class SqlSessionTemplate implements SqlSession, DisposableBean {
     this.sqlSessionFactory = sqlSessionFactory;
     this.executorType = executorType;
     this.exceptionTranslator = exceptionTranslator;
+    /**
+     * SqlSessionTemplate表面上实现了SqlSession接口，而且内部有一个SqlSession 属性 sqlSessionProxy。
+     * 但是实际上这个sqlSessionProxy对象 是一个接口的代理对象，从这里我们可以看到我们创建了SqlSession接口的代理对象
+     * 指定使用SqlSessionInterceptor作为InvocationHandler
+     * （1）那么作为代理对象我们关注 代理对象内部的实际对象是哪个
+     * （2）当我们使用sqlSessionTemplate执行 template作为sqlSession接口对外暴露的方法，比如selectList的时候 实际上是委托给了代理对象
+     * sqlSessionProxy的selectList。 因此最终会执行SqlSessionInterceptor的invoke方法
+     *
+     */
     this.sqlSessionProxy = (SqlSession) newProxyInstance(SqlSessionFactory.class.getClassLoader(),
         new Class[] { SqlSession.class }, new SqlSessionInterceptor());
   }
@@ -152,8 +169,16 @@ public class SqlSessionTemplate implements SqlSession, DisposableBean {
     return this.sqlSessionProxy.selectOne(statement);
   }
 
+
   /**
-   * {@inheritDoc}
+   * SqlSessionTemplate表面上实现了SqlSession接口，而且内部有一个SqlSession 属性 sqlSessionProxy。
+   * 但是实际上这个sqlSessionProxy对象 是一个接口的代理对象，从这里我们可以看到我们创建了SqlSession接口的代理对象
+   * 指定使用SqlSessionInterceptor作为InvocationHandler
+   * （1）那么作为代理对象我们关注 代理对象内部的实际对象是哪个
+   * （2）当我们使用sqlSessionTemplate执行 template作为sqlSession接口对外暴露的方法，比如selectList的时候 实际上是委托给了代理对象
+   * sqlSessionProxy的selectList。 因此最终会执行SqlSessionInterceptor的invoke方法
+   *
+   *
    */
   @Override
   public <T> T selectOne(String statement, Object parameter) {
@@ -421,6 +446,10 @@ public class SqlSessionTemplate implements SqlSession, DisposableBean {
   private class SqlSessionInterceptor implements InvocationHandler {
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+      /**
+       * invoke方法内部首先 使用sqlSessionFactory获取 实际的sqlSession对象，这里获取到的SqlSession应该是最底层的默认实现DefaultSqlSession对象
+       *
+       */
       SqlSession sqlSession = getSqlSession(SqlSessionTemplate.this.sqlSessionFactory,
           SqlSessionTemplate.this.executorType, SqlSessionTemplate.this.exceptionTranslator);
       try {

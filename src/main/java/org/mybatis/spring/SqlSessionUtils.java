@@ -75,6 +75,11 @@ public final class SqlSessionUtils {
    * current transaction. If there is not any, it creates a new one. Then, it synchronizes the SqlSession with the
    * transaction if Spring TX is active and <code>SpringManagedTransactionFactory</code> is configured as a transaction
    * manager.
+   * *从Spring Transaction Manager获取一个SqlSession，或者创建一个新的SqlSession。尝试获取SqlSession
+   * *当前事务。如果没有，则创建一个新的。然后，它将SqlSession与
+   * * transaction如果Spring TX是激活的，并且<code>SpringManagedTransactionFactory</code>被配置为一个事务
+   * *经理。
+   * ＊
    *
    * @param sessionFactory
    *          a MyBatis {@code SqlSessionFactory} to create new sessions
@@ -94,16 +99,31 @@ public final class SqlSessionUtils {
     notNull(sessionFactory, NO_SQL_SESSION_FACTORY_SPECIFIED);
     notNull(executorType, NO_EXECUTOR_TYPE_SPECIFIED);
 
+    /**
+     * 这里是从当前线程的  ThreadLocal<Map<Object, Object>> resources 中使用sessionFactory作为key获取sqlSession
+     * 也就是说Mybatis创建了SqlSession之后会封装成 SqlSessionHolder ，使用sessionFactory作为key，holder作为value放置到
+     * 当前线程的resources中
+     */
     SqlSessionHolder holder = (SqlSessionHolder) TransactionSynchronizationManager.getResource(sessionFactory);
 
+    /**
+     * 从sessionHolder中取出sqlSession。一般我们假设第一次运行的时候 根据SessionFactory从resource中是取不到SessionHolder的，因此
+     * 下面的从holder中取出session也会返回null
+     */
     SqlSession session = sessionHolder(executorType, holder);
     if (session != null) {
       return session;
     }
 
     LOGGER.debug(() -> "Creating a new SqlSession");
+    /**
+     * 使用sessionFactory创建session
+     */
     session = sessionFactory.openSession(executorType);
 
+    /**
+     * 将sessionFactory和 session注册到当前线程的ThreadLocal resources中
+     */
     registerSessionHolder(sessionFactory, executorType, exceptionTranslator, session);
 
     return session;
@@ -128,16 +148,51 @@ public final class SqlSessionUtils {
   private static void registerSessionHolder(SqlSessionFactory sessionFactory, ExecutorType executorType,
       PersistenceExceptionTranslator exceptionTranslator, SqlSession session) {
     SqlSessionHolder holder;
+    /**
+     *判断当前线程中是否可以存放 TransactionSynchronization 回调接口对象、
+     *
+     * 值得注意的是 Spring中的TransactionSynchronizationManager 是一个抽象类Abstract，意味着所有的线程都共用同一个TransactionSynchronizationManager
+     * 但是TransactionSynchronizationManager内 所有属性都是ThreadLocal，因此 针对每一个线程而言   使用TransactionSynchronizationManager中的同一个属性
+     * 在不同的线程中可以取到不同的值，因此实现了线程隔离
+     *
+     * ThreadLocal ：  synchronizations.get() != null;
+     */
     if (TransactionSynchronizationManager.isSynchronizationActive()) {
       Environment environment = sessionFactory.getConfiguration().getEnvironment();
 
+      /**
+       * 如果当前事务环境是SpringManagedTransaction， 这个可以在org.apache.ibatis.session.defaults.DefaultSqlSessionFactory#openSessionFromDataSource(org.apache.ibatis.session.ExecutorType, org.apache.ibatis.session.TransactionIsolationLevel, boolean)
+       * 看到。
+       */
       if (environment.getTransactionFactory() instanceof SpringManagedTransactionFactory) {
         LOGGER.debug(() -> "Registering transaction synchronization for SqlSession [" + session + "]");
 
         holder = new SqlSessionHolder(session, executorType, exceptionTranslator);
+        /**
+         * 将 sessionFactory，sessionHolder放置到ThreadLocal resources中
+         */
         TransactionSynchronizationManager.bindResource(sessionFactory, holder);
+        /**
+         * 注册一个资源回调接口，当事务关闭 的时候 需要清除 sqlSession
+         *
+         */
         TransactionSynchronizationManager
             .registerSynchronization(new SqlSessionSynchronization(holder, sessionFactory));
+        /**
+         * 需要注意的是 SqlSessionHolder 继承自spring的 ResourceHolderSupport
+         * spring事务中 ThreadLocal resources变量中放入的数据value 一般都是以ResourceHolder的形式存放的
+         * 这一点我们可以通过 org.springframework.transaction.support.TransactionSynchronizationManager#doGetResource(java.lang.Object)方法中看到
+         *   Object value = map.get(actualKey);
+         *             if (value instanceof ResourceHolder && ((ResourceHolder)value).isVoid()) {
+         *                 map.remove(actualKey);
+         *                 if (map.isEmpty()) {
+         *                     resources.remove();
+         *                 }
+         *
+         *                 value = null;
+         *             }
+         *  上面的map就是 ThreadLocal<Map<Object, Object>> resources  使用resources.get返回值。
+         */
         holder.setSynchronizedWithTransaction(true);
         holder.requested();
       } else {

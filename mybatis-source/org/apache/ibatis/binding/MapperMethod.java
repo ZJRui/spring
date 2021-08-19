@@ -142,6 +142,29 @@ public class MapperMethod {
     Object param = method.convertArgsToSqlCommandParam(args);
     if (method.hasRowBounds()) {
       RowBounds rowBounds = method.extractRowBounds(args);
+      /**
+       * 首先是执行mapper接口的方法，然后进入到MapperProxy的invoke方法中
+       * 在mapperProxy的invoke方法中会根据当前执行的方法和mapperInterface创建MapperMethod，然后就会执行 mapperMethod.execute(sqlSession, args);
+       * MapperMethod的execute最终会执行MapperMethod的executeForMany
+       *
+       * 从这里我们看到MapperMethod中最终是使用了SqlSession的selectList，
+       * 在MapperMethod的executeForMany方法中参数sqlSession是从MapperProxy中传递过来的
+       * MapperProxy中的sqlSession一般是SqlSessionTemplate对象。 SqlSession有三种对象：（1）DefaultSqlSession (2)SqlSessionManager (3)SqlSessionTemplate
+       * 其中SqlSessionTemplate是 spring-mybatis中提供的实现,SqlSessionTemplate内部持有SqlSession sqlSessionProxy;
+       *
+       * SqlSessionManager同时实现了SqlSessionFactory, SqlSession接口，但是SqlSessionManager实现这两个接口不是自己实现的，而是SqlSessionManager
+       * 内部有两个属性 private final SqlSessionFactory sqlSessionFactory; private final SqlSession sqlSessionProxy;
+       *
+       * 因此真正实现SqlSession接口的只有DefaultSqlSession,DefaultSqlSession内部持有Executor executor; 属性，具体的查询逻辑交个Executor
+       *
+       *
+       *  在创建MapperProxy的时候我们会将SqlSession传递给MapperProxy。
+       * 因此将会执行SqlSessionTemplate的selectList
+       *
+       *
+       *
+       *
+       */
       result = sqlSession.selectList(command.getName(), param, rowBounds);
     } else {
       result = sqlSession.selectList(command.getName(), param);
